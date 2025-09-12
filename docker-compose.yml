@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  location-anonymizer:
+    build: .
+    container_name: location-anonymizer
+    volumes:
+      - ./input:/app/input:ro
+      - ./output:/app/output:rw
+    environment:
+      - MPLBACKEND=Agg
+    working_dir: /app
