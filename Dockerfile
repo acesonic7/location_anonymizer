@@ -1,19 +1,16 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
-
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY location_anonymizer.py .
 
-RUN mkdir -p /app/input /app/output
+RUN useradd --create-home appuser
+USER appuser
 
 ENV MPLBACKEND=Agg
 
-CMD ["python", "--help"]
+ENTRYPOINT ["python", "/app/location_anonymizer.py"]
+CMD ["--help"]

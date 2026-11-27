@@ -1,12 +1,9 @@
-version: '3.8'
-
 services:
   location-anonymizer:
     build: .
-    container_name: location-anonymizer
+    # Run as the calling user so files in ./output are owned by you:
+    #   UID=$(id -u) GID=$(id -g) docker compose run --rm location-anonymizer ...
+    user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./input:/app/input:ro
       - ./output:/app/output:rw
-    environment:
-      - MPLBACKEND=Agg
-    working_dir: /app

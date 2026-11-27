@@ -1,189 +1,186 @@
-# 🔒 Location Data Anonymizer
+# Location Data Anonymizer
 
-<img width="4769" height="2367" alt="image" src="https://github.com/user-attachments/assets/723c6733-e25b-44b8-a735-8696e2c7fa3b" />
+**Removes location data around home (and other protected places) from JSON location exports, and generalises the rest.**
 
+Developed by **MobyX** in the context of the **SPINE project** for sharing location data in research.
 
-**Privacy-preserving location data anonymization tool with home-based protection.**
+## Overview
 
-Developed by **MobyX** in the context of the **SPINE project** for secure location data sharing and privacy protection in research.
+The tool takes a JSON export of personal location traces, mostly coming from Citizen app tracking data, and produces a copy that is safer to share:
 
-## 📋 Overview
+1. **Finds the protected places** – home, by its `primaryActivityId`, plus any others you name (for example work).
+2. **Draws a privacy zone around each one.** The zone centre is moved a random 20–60 % of the radius away from the place, so the gap left in the data is not centred on the home.
+3. **Removes every coordinate inside a zone**, wherever it appears in the file – `locations`, `places`, `geoFence`, `userMobilities`, `predictions` or any other section.
+4. **Snaps every remaining coordinate to a grid** (100 m cells by default).
+5. **Audits the result** and writes nothing if a protected place can still be found in it.
 
-This tool anonymizes personal location traces from JSON datasets, mostly coming from Citizen app tracking data, by applying intelligent coordinate scrambling around a user-designated home location. It maintains spatial relationships for data utility while protecting privacy through global coordinate shifting and proximity-based noise injection.
+Coordinates stay in their real geography, so the output can still be matched to roads, stops and lines.
 
+## What this does and does not protect
 
-## ✨ Features
+Read this before sharing any output.
 
-- 🏠 **Home-Based Anonymization** -  Protection/scramble around  home location
-- 🌍 **Global Coordinate Shifting** - Moves all locations by a random offset
-- 🔊 **Proximity-Based Noise** - More scrambling near sensitive areas
-- 📊 **Before/After Visualization** - See exactly how your data is protected
-- 🔒 **Complete Privacy** - Original coordinates never retained in output
-- 📁 **JSON Structure Preserved** - Only location coordinates are modified
+**It does**
 
-## 🔧 How It Works
+- Remove the home coordinates and everything recorded within a few hundred metres of home.
+- Stop the simple attacks: reading the home from `places`, averaging the home cluster, or taking the centre of the gap.
+- Refuse to produce a file when the home cannot be identified or the audit fails.
 
-1. **Identifies your home** using the predefined home activity ID
-2. **Applies global shift** - Moves all coordinates by 1-10km randomly
-3. **Adds targeted noise** - Extra randomization within configurable radius of home
-4. **Preserves relationships** - Maintains relative distances and movement patterns
-5. **Generates visualization** - Shows before/after comparison for verification
+**It does not**
 
-## 📦 Installation & Setup
+- **Make the data anonymous in the GDPR sense.** A person's movement pattern is itself identifying – a handful of place-and-time points is usually enough to single someone out. Treat the output as pseudonymised personal data and share it under an agreement.
+- **Hide the neighbourhood.** Someone studying the output can work out roughly where the zone is. They then know the home lies in a ring 0.2–0.6 × radius from its centre: 100–300 m with the default radius, about 0.25 km². In a dense city that covers many households; in a village it may be a few. **Increase `--radius` in sparse areas.**
+- **Protect places you did not name.** A clinic, a friend's home or a place of worship is only blurred to the grid. Add its activity ID with `--protect` if it appears in `places`.
+- **Touch timestamps.** Gaps in the trace show when the person was inside a zone.
+- **Understand non-coordinate fields.** Addresses, place names, Wi-Fi names and coordinates packed into strings are copied through. Remove such fields with `--drop-key`.
 
-### Requirements
-- Python 3.11 or higher
-- matplotlib
-- numpy
+Anonymize each person's data **once**. Two outputs with differently placed zones can be overlaid to narrow down the home; if you need to re-run, use `--key-file` so the zone lands in the same place every time.
 
-### Installation
+## Installation
+
+Requires Python 3.9 or higher. The anonymizer itself has no dependencies; `matplotlib` is only needed for `--viz`.
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/acesonic7/location_anonymizer.git
 cd location_anonymizer
-
-# 2. Install dependencies
-pip install matplotlib numpy
-
-# 3. Verify installation
-python location_anonymizer.py --help
+pip install -e ".[viz]"
 ```
 
-## 🚀 Usage
+Or run the script directly without installing: `python location_anonymizer.py --help`.
 
-### Basic Usage
+## Usage
 
 ```bash
 python location_anonymizer.py input.json output.json "19ac8d10-e85e-11ea-9c89-eb597145d8d6"
 ```
 
-### With Custom Settings
+The third argument is the `primaryActivityId` that marks the home place in the `places` array.
+
+Protect work as well, with a larger zone and coarser grid:
 
 ```bash
-python location_anonymizer.py input.json output.json "19ac8d10-e85e-11ea-9c89-eb597145d8d6" --radius 0.8 --noise 0.4 --viz demo.png
+python location_anonymizer.py input.json output.json HOME_ID --protect WORK_ID --radius 0.8 --grid 250
 ```
 
-### Skip Visualization (Faster Processing)
+Keep the records but move them to the displaced zone centre (useful when time spent at home matters, e.g. for activity-based models), and drop an address field:
 
 ```bash
-python location_anonymizer.py input.json output.json "19ac8d10-e85e-11ea-9c89-eb597145d8d6" --no-viz
+python location_anonymizer.py input.json output.json HOME_ID --zone-mode snap --drop-key address
 ```
 
-### Parameters
+### Options
 
-| Parameter | Description | Default | Range |
-|-----------|-------------|---------|--------|
-| `--radius` | Anonymization radius around home (km) | 0.5 | 0.1-5.0 |
-| `--noise` | Noise intensity factor | 0.3 | 0.1-1.0 |
-| `--viz` | Save visualization to specific file | auto-generated | any path |
-| `--no-viz` | Skip visualization creation | false | flag |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--radius KM` | Privacy zone radius, 0.1–5.0 km | 0.5 |
+| `--grid METRES` | Grid cell size for remaining coordinates, 10–5000 m; `0` turns it off | 100 |
+| `--protect ID` | Another `primaryActivityId` to protect like home (repeatable) | – |
+| `--zone-mode drop\|snap` | `drop` removes records inside a zone; `snap` keeps them at the displaced zone centre | `drop` |
+| `--drop-key NAME` | Delete this field wherever it appears (repeatable) | – |
+| `--key-file PATH` | Secret (≥ 16 bytes) that makes zone placement repeatable | random each run |
+| `--viz PATH` | Save a before/after image **for your own checking – it shows the original data** | off |
 
-## 📊 Complete Example
+The exit code is `0` on success and non-zero on any failure. On failure no output file is written.
+
+### Example run
 
 ```bash
-# Anonymize with high privacy settings and save visualization
-python location_anonymizer.py MyLocationData.json MyLocationData_anonymized.json "19ac8d10-e85e-11ea-9c89-eb597145d8d6" --radius 0.8 --noise 0.6 --viz privacy_demo.png
-
-# Output:
-# ✓ Found home location: 40.712776, -74.005974
-# ✓ Applying global coordinate offset: 0.045123°, -0.078456°
-# ✓ Processed 2847 valid location points
-# ✓ 156 points within anonymization radius received extra noise
-# ✓ VERIFICATION PASSED: All 2847 coordinates successfully anonymized
-# ✓ Anonymized data saved successfully!
-# ✓ Visualization saved to: privacy_demo.png
+python examples/make_example.py example_input.json
+python location_anonymizer.py example_input.json example_output.json HOME
 ```
 
-## 📊 Input/Output
+```text
+Protected places: 1 (zone radius 500 m, centre displaced 100-300 m)
+Coordinates found: 743
+  removed (inside a zone): 338
+  blanked (inside a zone, could not remove the record): 0
+  moved to the zone centre: 0
+  generalised to a 100 m grid: 405
+By section:
+  locations: 740 found, 336 inside a zone
+  places: 2 found, 1 inside a zone
+  geoFence: 1 found, 1 inside a zone
+Sections with no recognised coordinates (copied as they are - inspect before sharing): userMobilities, predictions
+Audit passed: closest remaining coordinate to a protected place is 725 m away (before grid generalisation)
+Anonymized data saved to example_output.json
+```
 
-### Input Format
-JSON file with this structure:
+Always read the "Sections with no recognised coordinates" line: those sections were copied unchanged.
+
+## Input and output
+
+The input is a JSON object with a `places` array that contains the home place:
+
 ```json
 {
-  "locations": [...],      // Location records with lat/lon coordinates
-  "places": [...],         // Places including home location
-  "geoFence": [...],       // Geofence events (unchanged)
-  "userMobilities": [...], // User mobility data (unchanged)  
-  "predictions": [...]     // Predictions (unchanged)
+  "locations": [{"latitude": 40.0021, "longitude": 20.0004, "timestamp": 1700000000}],
+  "places": [{"primaryActivityId": "…", "latitude": 40.0, "longitude": 20.0}],
+  "geoFence": [],
+  "userMobilities": [],
+  "predictions": []
 }
 ```
 
-### Output Format
-Identical JSON structure with **anonymized coordinates** in the `locations` array. All other data remains unchanged.
+Coordinates are recognised anywhere in the document under `latitude`/`longitude`, `lat`/`lon`/`lng`/`long`, and prefixed forms such as `startLatitude`/`startLongitude`.
 
-**Original location:**
-```json
-{"latitude": 40.712776, "longitude": -74.005974}
-```
+In the output:
 
-**Anonymized location:**
-```json
-{"latitude": 40.698234, "longitude": -73.991847}
-```
+- A record in a list whose own coordinates fall inside a zone is **removed** (in `drop` mode).
+- Coordinates that cannot be removed with their record – nested objects, or prefixed pairs such as a trip's start point – are set to `null`.
+- All other coordinates are replaced by the centre of their grid cell.
+- Everything else is copied unchanged.
 
-## 📁 Project Structure
+If the audit finds a protected location under field names it does not recognise, or in a `[lon, lat]` array, it stops and names the field so you can remove it with `--drop-key`.
 
-```
-location-anonymizer/
-├── location_anonymizer.py    # Main anonymization script
-├── find_home_id.py          # Helper script (for development)
-├── requirements.txt         # Python dependencies
-├── README.md               # This file
-└── examples/               # Example files and outputs
-```
+## Docker
 
-## 🔒 Privacy Guarantees
-
-- ✅ **No original coordinates in output** - Completely replaced with anonymized versions
-- ✅ **Irreversible transformation** - Cannot recover original locations from output  
-- ✅ **Global coordinate shift** - Entire dataset moved 1-10km randomly
-- ✅ **Home-area protection** - Extra noise within configurable radius of home
-- ✅ **Verification system** - Confirms no original coordinates remain
-
-## 📊 Visualization
-
-The tool generates before/after visualizations showing:
-- **Left panel:** Original location data centered on actual home
-- **Right panel:** Anonymized data with coordinate shifts and noise
-- **Statistics:** Details about anonymization parameters and affected points
-- **Visual indicators:** Home location, anonymization radius, and data points
-
-## 🐛 Troubleshooting
-
-### "Home location not found"
-- Ensure your JSON file contains the expected places structure
-- Verify the home activity ID exists in your data
-
-### "matplotlib not available"
 ```bash
-pip install matplotlib numpy
+docker compose build
+mkdir -p input output   # put your export in ./input
+UID=$(id -u) GID=$(id -g) docker compose run --rm location-anonymizer \
+  /app/input/input.json /app/output/output.json HOME_ID
 ```
 
-### Permission issues
+## Changes from the first version
+
+The first version shifted the whole trace by one random offset and added a little noise near home. That has been replaced, because:
+
+- a constant shift keeps the exact shape of the trace, so it can be undone by lining the trace up with the road network or with any one known location;
+- the home coordinates were still present, unchanged, in `places`;
+- the noise near home averaged out over many points;
+- a wrong home ID wrote the original data to the output file.
+
+`--noise` is no longer used. `--no-viz` is now the default behaviour; pass `--viz PATH` to get an image.
+
+## Development
+
 ```bash
-# Make sure you have write permissions in the output directory
-chmod 755 output_directory/
+pip install -e ".[dev]"
+pytest
 ```
 
-## 📄 About
+```
+location_anonymizer/
+├── location_anonymizer.py   # The anonymizer and its command line
+├── tests/                   # Tests on synthetic data
+├── examples/make_example.py # Writes a synthetic input file
+├── Dockerfile, docker-compose.yml
+└── pyproject.toml
+```
+
+Never commit real location exports. `.gitignore` excludes `*.json` and `*.png` for that reason.
+
+## About
 
 ### SPINE Project
-This tool was developed as part of the SPINE (Sustainable Personal Indoor and Outdoor Navigation Experience) project, which focuses on advancing public transport and sustainable transportation .
+This tool was developed as part of the SPINE (Smart Public transport Initiatives for climate-Neutral cities in Europe) project, which focuses on advancing public transport and sustainable transportation.
 
 ### MobyX
 **MobyX** is a research team specializing in mobility data analytics and sustainable transportation solutions.
 
 ### License
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
-## 📞 Contact
+## Contact
 
-For questions, issues, or collaboration opportunities related to the SPINE project or location data anonymization:
-- Open an issue on GitHub
-- Contact the MobyX development team
-- Check the troubleshooting section above
-
----
-
-**⚠️ Important:** Always verify your anonymized data meets your privacy requirements before sharing. This tool provides technical anonymization but cannot guarantee complete privacy in all scenarios. Use responsibly.
+For questions, issues, or collaboration opportunities related to the SPINE project or location data anonymization, open an issue on GitHub or contact the MobyX development team.
