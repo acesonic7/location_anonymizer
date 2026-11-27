@@ -16,6 +16,10 @@ The tool takes a JSON export of personal location traces, mostly coming from Cit
 
 Coordinates stay in their real geography, so the output can still be matched to roads, stops and lines.
 
+![The method in four steps: the original trace, a privacy zone placed off-centre, removal and grid generalisation, and what a reader of the output can work out](docs/method.png)
+
+The figure uses a synthetic trace and is drawn by running the anonymizer itself: `python examples/make_method_figure.py docs/method.png`.
+
 ## What this does and does not protect
 
 Read this before sharing any output.
@@ -164,11 +168,13 @@ location_anonymizer/
 ├── location_anonymizer.py   # The anonymizer and its command line
 ├── tests/                   # Tests on synthetic data
 ├── examples/make_example.py # Writes a synthetic input file
+├── examples/make_method_figure.py  # Draws docs/method.png
+├── docs/method.png          # The figure above
 ├── Dockerfile, docker-compose.yml
 └── pyproject.toml
 ```
 
-Never commit real location exports. `.gitignore` excludes `*.json` and `*.png` for that reason.
+Never commit real location exports. `.gitignore` excludes `*.json` and `*.png` for that reason; the synthetic `docs/method.png` is the one exception.
 
 ## About
 
