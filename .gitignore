@@ -18,6 +18,7 @@ dist/
 input/
 output/
 *.png
+!docs/method.png
 *.json
 *.tmp
 *.key
