@@ -1,2 +1,2 @@
+# Only needed for --viz; the anonymizer itself uses the standard library.
 matplotlib>=3.7.0
-numpy>=1.24.0

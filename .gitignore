@@ -8,10 +8,19 @@ __pycache__/
 *.swp
 *.swo
 
-# Output files
+# Build and test files
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Data files: never commit location exports, anonymized or not
+input/
 output/
 *.png
 *.json
+*.tmp
+*.key
 
 # Mac files
 .DS_Store
